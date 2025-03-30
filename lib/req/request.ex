@@ -1139,24 +1139,41 @@ defmodule Req.Request do
       sep = color(",", :map, opts)
       close = color("}", :map, opts)
 
+      redacted_headers = Application.get_env(:req, :redacted_headers, [])
+
       headers =
         if unquote(Req.MixProject.legacy_headers_as_lists?()) do
           for {name, value} <- request.headers do
-            if Req.Fields.ensure_name_downcase(name) == "authorization" do
-              [scheme, value] = String.split(value, " ", parts: 2)
-              {name, scheme <> " " <> redact(value)}
-            else
-              {name, value}
+            downcased = Req.Fields.ensure_name_downcase(name)
+
+            cond do
+              downcased in redacted_headers ->
+                {name, redact(value)}
+
+              downcased == "authorization" ->
+                [scheme, value] = String.split(value, " ", parts: 2)
+                {name, scheme <> " " <> redact(value)}
+
+              true ->
+                {name, value}
             end
           end
         else
           for {name, values} <- request.headers, into: %{} do
-            if Req.Fields.ensure_name_downcase(name) == "authorization" do
-              [value] = values
-              [scheme, value] = String.split(value, " ", parts: 2)
-              {name, [scheme <> " " <> redact(value)]}
-            else
-              {name, values}
+            downcased = Req.Fields.ensure_name_downcase(name)
+
+            cond do
+              downcased in redacted_headers ->
+                [value] = values
+                {name, [redact(value)]}
+
+              downcased == "authorization" ->
+                [value] = values
+                [scheme, value] = String.split(value, " ", parts: 2)
+                {name, [scheme <> " " <> redact(value)]}
+
+              true ->
+                {name, values}
             end
           end
         end

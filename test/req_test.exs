@@ -66,6 +66,16 @@ defmodule ReqTest do
       assert inspect(Req.new(headers: [authorization: "bearer foo"])) =~
                ~s|"authorization" => ["bearer ***"]|
     end
+
+    Application.put_env(:req, :redacted_headers, ["x-secret-header"])
+
+    if Req.MixProject.legacy_headers_as_lists?() do
+      assert inspect(Req.new(headers: [{"x-secret-header", "foobar"}])) =~
+               ~s|{"x-secret-header", "foo***"}|
+    else
+      assert inspect(Req.new(headers: [{"x-secret-header", "foobar"}])) =~
+               ~s|"x-secret-header" => ["foo***"]|
+    end
   end
 
   test "plugins" do
